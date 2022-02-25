@@ -1,8 +1,8 @@
 from datetime import datetime
-from dataclasses import dataclass
+from allocation.domain.model.root_entity import Entity
 
 
-class OrderItem:
+class OrderItem(Entity):
     def __init__(self, created_at: datetime,
                  order_id: int,
                  price_usd: float,
@@ -22,20 +22,29 @@ class OrderItem:
     def __repr__(self) -> str:
         return "Product: {}, price_usd: {}, at: {} ".format(self.product_id, self.price_usd, self.created_at)
 
-    def add(self, session):
-        session.add(self)
-
-    def get(self, session, item_order_id):
-        return session.query(OrderItem).filter_by(id=item_order_id)
-
-    def remove(self, session):
-        session.delete(self)
-
-    def value(self) -> float:
-        return self.price_usd
+    def __enter__(self):
+        super().__init__()
 
     def is_prime(self) -> bool:
         return self.is_primary_item
+
+    @classmethod
+    def add(cls, session):
+        session.add(cls)
+
+    @classmethod
+    def remove(cls, session, entity_id):
+        entity = session.query(cls).filter(cls.id == entity_id).first()
+        session.delete(entity)
+
+    @classmethod
+    def get(cls, session, entity_id):
+        entity = session.query(cls).filter(cls.id == entity_id).first()
+        return entity.__repr__()
+
+    @classmethod
+    def list(cls, session, entity: object):
+        return session.query(entity).all()
 
 
 """

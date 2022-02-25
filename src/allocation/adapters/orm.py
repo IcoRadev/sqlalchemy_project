@@ -2,6 +2,7 @@ from sqlalchemy import create_engine, MetaData, Column, Integer, String, DateTim
 from sqlalchemy.ext.indexable import index_property
 from sqlalchemy.orm import relationship, registry, mapper
 from allocation.domain.model import chat_session_entity, order_entity, website_entity
+from allocation.domain import batch_entity
 from allocation import config
 
 cfg = config.get_configuration()
@@ -56,6 +57,8 @@ class ChatSession:
     start_time = Column(DateTime)
     end_time = Column(DateTime)
 
+    children = relationship("ChatAllocation", cascade="all,delete", backref="ChatSession")
+    chat_allocations = relationship("ChatAllocation", back_populates="chat_session")
     order_item = relationship("OrderItem", back_populates="chat_sessions")
     website_session = relationship("WebsiteSession", back_populates="chat_sessions")
     website_session_user = relationship("WebsiteSession", back_populates="chat_session_users")
@@ -67,7 +70,6 @@ class WebsiteSession:
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     created_at = Column(DateTime)
-    # user_id = Column(Index, nullable=False)
     user_id = Column(Integer, index=True)
     is_repeat_session = Column(Boolean)
     utm_source = Column(String(128))
@@ -95,7 +97,44 @@ class WebsitePageview:
     website_session = relationship("WebsiteSession", back_populates="website_pageviews")
 
 
+@mapper_registry.mapped
+class Batch:
+    __tablename__ = "batches"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    ref_type = Column(String(128))
+    tag = Column(String(128), index=True)
+
+    index = index_property("batch_tag", Integer)
+    children = relationship("ChatAllocation", cascade="all,delete", backref="Batch")
+    chat_allocations = relationship("ChatAllocation", back_populates="")
+
+
+@mapper_registry.mapped
+class ChatAllocation:
+    __tablename__ = "chat_allocations"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    batch_tag = Column(String(128), ForeignKey("batches.tag"))
+    chat_id = Column(Integer, ForeignKey("chat_sessions.id"))
+
+    chat_session = relationship("ChatSession", back_populates="chat_allocations")
+    batch_entity = relationship("Batch", back_populates="chat_allocations")
+
+
 def start_mappers():
+    # Entities
     mapper(order_entity.OrderItem, OrderItem)
-    mapper(chat_session_entity.ChatSession, ChatSession)
     mapper(website_entity.WebsiteSession, WebsiteSession)
+    chat_mapper = mapper(chat_session_entity.ChatSession, ChatSession)
+    # Batches
+    chat_allocations = mapper(chat_session_entity.ChatAllocation, ChatAllocation)
+    mapper(batch_entity.Batch, Batch)
+    #
+    # batches_mapper = mapper(batch_entity.Batch, Batch,
+    #                         properties={
+    #                             "chat_allocations": relationship(
+    #                                 chat_mapper,
+    #                                 secondary=chat_allocations)})
+
+    metadata.create_all(bind=engine)

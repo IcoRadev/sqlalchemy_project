@@ -1,18 +1,22 @@
 import abc
-from allocation.domain.model.root_entity import Entity
+from allocation.domain.batch_entity import Batch
 
 
 class AbstractRepository(abc.ABC):
     @abc.abstractmethod
-    def add(self, entity: Entity):
+    def add(self, batch: Batch):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def remove(self, entity: object, entity_id):
+    def remove(self, batch: Batch, batch_id: int):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get(self, entity: object, entity_id: int):
+    def get(self, batch: Batch, batch_id: int):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def list(self, batch: Batch):
         raise NotImplementedError
 
 
@@ -20,16 +24,16 @@ class SqlAlchemyRepository(AbstractRepository):
     def __init__(self, session):
         self.session = session
 
-    def add(self, entity):
-        self.session.add(entity)
+    def add(self, batch: Batch):
+        batch.add(self.session, batch)
 
-    def remove(self, entity, entity_id):
-        entity = self.session.query(entity).filter(entity.id == entity_id).first()
-        self.session.delete(entity)
+    def remove(self, batch: Batch, batch_id: int):
+        batch.remove(self.session, batch, batch_id)
 
-    def get(self, entity: object, entity_id):
-        entity = self.session.query(entity).filter(entity.id == entity_id).first()
-        return entity
+    def get(self, batch: Batch, batch_id: int):
+        batch.get(self.session, batch, batch_id)
+        return batch
 
-    def list(self):
-        return self.session.query(Entity).all()
+    def list(self, batch: Batch):
+        return self.session.query(batch).all()
+
